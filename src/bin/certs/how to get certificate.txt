@@ -1,0 +1,8 @@
+To get the certificate run the following command:
+openssl s_client -showcerts -connect discordapp.com:443
+And take the last certificate mentioned
+
+To make it a header file run the following command:
+xxd -i YOUR_CERTIFICATE.pem > YOUR_CERTIFICATE.h
+
+And adapt the header to be used in RUST
