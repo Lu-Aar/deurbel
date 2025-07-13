@@ -35,7 +35,7 @@ impl Discord {
 
     pub async fn send_discord(&self, content: &str, embed_json: &str) -> Result<(), ()> {
 
-        let mut client = HttpClient::new_with_tls(stack, dns, tls_config);
+        // let mut client = HttpClient::new_with_tls(stack, dns, tls_config);
         // let mut client = HttpClient::new(self.wifi, TlsConfig {
         //     version: TlsVersion::Tls12,
         //     certificates: DISCORD_CERT,
