@@ -12,7 +12,12 @@ mod gong_control;
 mod discord;
 mod global;
 
-use esp_wifi::{init, wifi::{WifiDevice, WifiEvent}, EspWifiController};
+use esp_alloc::HeapStats;
+use esp_wifi::{
+    init,
+    wifi::{WifiDevice, WifiEvent},
+    EspWifiController
+};
 use gong_control::Gongcontrol;
 use discord::Discord;
 use global::{
@@ -21,21 +26,31 @@ use global::{
 };
 
 use esp_hal::{
-    clock::CpuClock, delay, gpio::{Level, Output, OutputConfig}, timer::timg::TimerGroup, rng::Rng,
+    clock::CpuClock,
+    delay,
+    gpio::{Level, Output, OutputConfig},
+    timer::timg::TimerGroup,
+    rng::Rng,
+    peripherals::RSA,
+    peripherals::SHA
 };
 use log::info;
 use esp_wifi::wifi::{WifiController, ClientConfiguration, Configuration, WifiState};
 use embassy_net::{
-    DhcpConfig, StackResources, Runner
+    DhcpConfig, StackResources, Runner, Stack
 };
 use embassy_time::{Timer, Duration};
 use embassy_executor::Spawner;
 use heapless::String;
 
+
 #[panic_handler]
 fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
 }
+
+mod notifications;
+use notifications::NOTIFICATIONS;
 
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
@@ -54,14 +69,17 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
-    let data_pin = initialize(spawner).await;
+        log::set_max_level(log::LevelFilter::Trace);
+    let (data_pin, stack, rsa_sha, mut rng) = initialize(spawner).await;
     let mut gong = Gongcontrol::new(37877946, 251, 1, data_pin);
 
+    let stats: HeapStats = esp_alloc::HEAP.stats();
     let delay = delay::Delay::new();
-    // let discord = Discord::new(&wifi);
+    let mut discord = Discord::new(stack, rsa_sha);
 
     loop {
-        // discord.send_message("Test");
+        info!("{}", stats);
+        let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
         gong.ring();
         info!("ding dong!");
 
@@ -69,13 +87,13 @@ async fn main(spawner: Spawner) -> ! {
     }
 }
 
-async fn initialize(spawner: Spawner) -> Output<'static> {
+async fn initialize(spawner: Spawner) -> (Output<'static>, Stack<'static>, (RSA<'static>, SHA<'static>), Rng) {
     esp_println::logger::init_logger_from_env();
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
     let peripherals = esp_hal::init(config);
 
-    esp_alloc::heap_allocator!(size: 64 * 1024);
+    esp_alloc::heap_allocator!(size: 128 * 1024);
 
     let timg0 = TimerGroup::new(peripherals.TIMG0);
     let mut rng = Rng::new(peripherals.RNG);
@@ -126,7 +144,7 @@ async fn initialize(spawner: Spawner) -> Output<'static> {
     }
 
     let led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
-    led
+    (led, stack, (peripherals.RSA, peripherals.SHA), rng)
 }
 
 #[embassy_executor::task]
