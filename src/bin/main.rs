@@ -12,10 +12,12 @@ mod gong_control;
 mod discord;
 mod global;
 
-use esp_alloc::HeapStats;
 use esp_wifi::{
     init,
-    wifi::{WifiDevice, WifiEvent},
+    wifi::{
+        WifiDevice,
+        WifiEvent
+    },
     EspWifiController
 };
 use gong_control::Gongcontrol;
@@ -28,18 +30,35 @@ use global::{
 use esp_hal::{
     clock::CpuClock,
     delay,
-    gpio::{Level, Output, OutputConfig},
-    timer::timg::TimerGroup,
+    gpio::{
+        Input,
+        InputConfig,
+        Pull,
+        Level,
+        Output,
+        OutputConfig
+    },
+    peripherals::{RSA, SHA},
     rng::Rng,
-    peripherals::RSA,
-    peripherals::SHA
+    timer::timg::TimerGroup
 };
 use log::info;
-use esp_wifi::wifi::{WifiController, ClientConfiguration, Configuration, WifiState};
-use embassy_net::{
-    DhcpConfig, StackResources, Runner, Stack
+use esp_wifi::wifi::{
+    WifiController,
+    ClientConfiguration,
+    Configuration,
+    WifiState
 };
-use embassy_time::{Timer, Duration};
+use embassy_net::{
+    DhcpConfig,
+    StackResources,
+    Runner,
+    Stack
+};
+use embassy_time::{
+    Timer,
+    Duration
+};
 use embassy_executor::Spawner;
 use heapless::String;
 
@@ -69,25 +88,31 @@ esp_bootloader_esp_idf::esp_app_desc!();
 
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
-        log::set_max_level(log::LevelFilter::Trace);
-    let (data_pin, stack, rsa_sha, mut rng) = initialize(spawner).await;
+    let (ios, stack, rsa_sha, mut rng) = initialize(spawner).await;
+    let (data_pin, bell, mute, test_bell) = ios;
     let mut gong = Gongcontrol::new(37877946, 251, 1, data_pin);
 
-    let stats: HeapStats = esp_alloc::HEAP.stats();
     let delay = delay::Delay::new();
     let mut discord = Discord::new(stack, rsa_sha);
 
     loop {
-        info!("{}", stats);
-        let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
-        gong.ring();
-        info!("ding dong!");
-
-        delay.delay_millis(5000);
+        if bell.is_low() || test_bell.is_low()
+        {
+            let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
+            if mute.is_high()
+            {
+                gong.ring();
+            }
+            info!("ding dong!");
+            delay.delay_millis(1000);
+        }
+        else {
+            delay.delay_millis(50);
+        }
     }
 }
 
-async fn initialize(spawner: Spawner) -> (Output<'static>, Stack<'static>, (RSA<'static>, SHA<'static>), Rng) {
+async fn initialize(spawner: Spawner) -> ((Output<'static>, Input<'static>, Input<'static>, Input<'static>), Stack<'static>, (RSA<'static>, SHA<'static>), Rng) {
     esp_println::logger::init_logger_from_env();
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -143,8 +168,11 @@ async fn initialize(spawner: Spawner) -> (Output<'static>, Stack<'static>, (RSA<
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    let led = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
-    (led, stack, (peripherals.RSA, peripherals.SHA), rng)
+    let data_pin = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
+    let bell = Input::new(peripherals.GPIO4, InputConfig::default().with_pull(Pull::Up));
+    let mute = Input::new(peripherals.GPIO16, InputConfig::default().with_pull(Pull::Up));
+    let test_bell = Input::new(peripherals.GPIO17, InputConfig::default().with_pull(Pull::Up));
+    ((data_pin, bell, mute, test_bell), stack, (peripherals.RSA, peripherals.SHA), rng)
 }
 
 #[embassy_executor::task]
