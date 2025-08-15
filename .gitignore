@@ -35,3 +35,15 @@ src/bin/global/mod.rs
 # pub const DISCORD_WEBHOOK_URL: &str = "YourWebhookURL";
 # pub const DISCORD_TTS: bool = false; // Set to true if you want Text To Speach messages
 # ```
+
+# KiCad files
+*-bak
+*-backups
+_autosave*
+*-cache*
+.kicad_prl
+fp-info-cache
+*-rescue.lib
+*-rescue.dcm
+Gerber/
+Gerber.rar
