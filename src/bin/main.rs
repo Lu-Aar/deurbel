@@ -11,22 +11,19 @@
 mod gong_control;
 mod discord;
 mod global;
+mod notifications;
+mod pin_state;
 
-use esp_wifi::{
-    init,
-    wifi::{
-        WifiDevice,
-        WifiEvent
-    },
-    EspWifiController
-};
 use gong_control::Gongcontrol;
 use discord::Discord;
 use global::{
     WIFI_SSID,
     WIFI_PASSWORD,
 };
+use notifications::NOTIFICATIONS;
+use pin_state::PinState;
 
+use log::info;
 use esp_hal::{
     clock::CpuClock,
     delay,
@@ -42,12 +39,17 @@ use esp_hal::{
     rng::Rng,
     timer::timg::TimerGroup
 };
-use log::info;
-use esp_wifi::wifi::{
-    WifiController,
-    ClientConfiguration,
-    Configuration,
-    WifiState
+use esp_wifi::{
+    init,
+    wifi::{
+        WifiController,
+        ClientConfiguration,
+        Configuration,
+        WifiState,
+        WifiDevice,
+        WifiEvent
+    },
+    EspWifiController
 };
 use embassy_net::{
     DhcpConfig,
@@ -68,8 +70,6 @@ fn panic(_: &core::panic::PanicInfo) -> ! {
     loop {}
 }
 
-mod notifications;
-use notifications::NOTIFICATIONS;
 
 macro_rules! mk_static {
     ($t:ty,$val:expr) => {{
@@ -95,8 +95,12 @@ async fn main(spawner: Spawner) -> ! {
     let delay = delay::Delay::new();
     let mut discord = Discord::new(stack, rsa_sha);
 
+    let mut bell = PinState::new(bell);
+    let mut test_bell = PinState::new(test_bell);
+    let mut mute = PinState::new(mute);
+
     loop {
-        if bell.is_low() || test_bell.is_low()
+        if bell.falling_edge() || test_bell.falling_edge()
         {
             let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
             if mute.is_high()
@@ -168,10 +172,10 @@ async fn initialize(spawner: Spawner) -> ((Output<'static>, Input<'static>, Inpu
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    let data_pin = Output::new(peripherals.GPIO2, Level::Low, OutputConfig::default());
-    let bell = Input::new(peripherals.GPIO4, InputConfig::default().with_pull(Pull::Up));
-    let mute = Input::new(peripherals.GPIO16, InputConfig::default().with_pull(Pull::Up));
-    let test_bell = Input::new(peripherals.GPIO17, InputConfig::default().with_pull(Pull::Up));
+    let data_pin = Output::new(peripherals.GPIO16, Level::Low, OutputConfig::default());
+    let bell = Input::new(peripherals.GPIO17, InputConfig::default()); 
+    let mute = Input::new(peripherals.GPIO18, InputConfig::default().with_pull(Pull::Up));
+    let test_bell = Input::new(peripherals.GPIO19, InputConfig::default().with_pull(Pull::Up));
     ((data_pin, bell, mute, test_bell), stack, (peripherals.RSA, peripherals.SHA), rng)
 }
 
