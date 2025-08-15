@@ -89,8 +89,8 @@ esp_bootloader_esp_idf::esp_app_desc!();
 #[esp_hal_embassy::main]
 async fn main(spawner: Spawner) -> ! {
     let (ios, stack, rsa_sha, mut rng) = initialize(spawner).await;
-    let (data_pin, bell, mute, test_bell) = ios;
-    let mut gong = Gongcontrol::new(37877946, 251, 1, data_pin);
+    let (data_pin, bell, mute, test_bell, mut physical_gong) = ios;
+    let mut gong = Gongcontrol::new(37877946, 251, data_pin);
 
     let delay = delay::Delay::new();
     let mut discord = Discord::new(stack, rsa_sha);
@@ -105,7 +105,9 @@ async fn main(spawner: Spawner) -> ! {
             let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
             if mute.is_high()
             {
+                physical_gong.set_high();
                 gong.ring();
+                physical_gong.set_low();
             }
             info!("ding dong!");
             delay.delay_millis(1000);
@@ -116,7 +118,10 @@ async fn main(spawner: Spawner) -> ! {
     }
 }
 
-async fn initialize(spawner: Spawner) -> ((Output<'static>, Input<'static>, Input<'static>, Input<'static>), Stack<'static>, (RSA<'static>, SHA<'static>), Rng) {
+async fn initialize(spawner: Spawner) -> ((Output<'static>, Input<'static>, Input<'static>, Input<'static>, Output<'static>),
+                                            Stack<'static>,
+                                            (RSA<'static>, SHA<'static>),
+                                            Rng) {
     esp_println::logger::init_logger_from_env();
 
     let config = esp_hal::Config::default().with_cpu_clock(CpuClock::max());
@@ -172,11 +177,13 @@ async fn initialize(spawner: Spawner) -> ((Output<'static>, Input<'static>, Inpu
         Timer::after(Duration::from_millis(500)).await;
     }
 
-    let data_pin = Output::new(peripherals.GPIO16, Level::Low, OutputConfig::default());
-    let bell = Input::new(peripherals.GPIO17, InputConfig::default()); 
-    let mute = Input::new(peripherals.GPIO18, InputConfig::default().with_pull(Pull::Up));
-    let test_bell = Input::new(peripherals.GPIO19, InputConfig::default().with_pull(Pull::Up));
-    ((data_pin, bell, mute, test_bell), stack, (peripherals.RSA, peripherals.SHA), rng)
+    let gpio16_out = Output::new(peripherals.GPIO16, Level::Low, OutputConfig::default());
+    let gpio17_in = Input::new(peripherals.GPIO17, InputConfig::default()); 
+    let gpio18_in = Input::new(peripherals.GPIO18, InputConfig::default());
+    let gpio19_in = Input::new(peripherals.GPIO19, InputConfig::default());
+    let gpio21_out = Output::new(peripherals.GPIO21, Level::Low, OutputConfig::default());
+
+    ((gpio16_out, gpio17_in, gpio18_in, gpio19_in, gpio21_out), stack, (peripherals.RSA, peripherals.SHA), rng)
 }
 
 #[embassy_executor::task]

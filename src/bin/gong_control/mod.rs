@@ -9,21 +9,19 @@ use log::info;
 pub struct Gongcontrol {
     address: u32,
     period: u8,
-    switch_type: u8,
     pin: gpio::Output<'static>,
     delay: Delay,
 }
 
 impl Gongcontrol {
-    pub fn new(address: u32, period: u8, switch_type: u8, pin: gpio::Output<'static>,) -> Self {
+    pub fn new(address: u32, period: u8, pin: gpio::Output<'static>,) -> Self {
         info!{
-            "Gongcontrol initialized with address: {}, period: {}, switch_type: {}",
-            address, period, switch_type
+            "Gongcontrol initialized with address: {}, period: {}",
+            address, period
         }
         Self {
             address,
             period,
-            switch_type,
             pin,
             delay: Delay::new(),
         }
@@ -35,10 +33,6 @@ impl Gongcontrol {
 
     pub fn set_period(&mut self, period: u8) {
         self.period = period;
-    }
-
-    pub fn set_switch_type(&mut self, switch_type: u8) {
-        self.switch_type = switch_type;
     }
 
     pub fn ring(&mut self) {
