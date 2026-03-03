@@ -22,7 +22,8 @@ This file should contain the following items:
 pub const WIFI_SSID: &str = "THE_SSID_TO_CONNECT_TO";
 pub const WIFI_PASSWORD: &str = "THE_PASSWORD_OF_THE_SSID";
 pub const DISCORD_WEBHOOK_URL: &str = "THE_URL_OF_THE_DISCORD_WEBHOOK_TO_USE";
-pub const DISCORD_TTS: &str = false; // Set to true when to use Text To Speech
+pub const DISCORD_TTS: bool = false; // Set to true when to use Text To Speech
+pub const KAKU_ADDRESS: u32 = 000000000; // The address of the Klik-Aan-Klik-Uit gong
 ```
 
 ## PCB
