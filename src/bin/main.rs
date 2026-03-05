@@ -102,7 +102,14 @@ async fn main(spawner: Spawner) -> ! {
     loop {
         if bell.falling_edge() || test_bell.falling_edge()
         {
-            let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
+            if test_bell.is_low() 
+            {
+                let _ = discord.send_message("Test notification: ding dong!").await;
+            }
+            else 
+            {
+                let _ = discord.send_message(NOTIFICATIONS[rng.random() as usize % NOTIFICATIONS.len()]).await;
+            }
             if mute.is_high()
             {
                 physical_gong.set_high();

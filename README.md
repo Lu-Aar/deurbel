@@ -28,3 +28,7 @@ pub const DISCORD_TTS: &str = false; // Set to true when to use Text To Speech
 ## PCB
 The PCB was created in KiCad. It's a free opensource program for creating schematics and PCB's.
 https://www.kicad.org/
+
+## How to flash
+. /home/luc/export-esp.sh 
+cargo build && cargo run
