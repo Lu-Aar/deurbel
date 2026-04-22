@@ -30,5 +30,6 @@ The PCB was created in KiCad. It's a free opensource program for creating schema
 https://www.kicad.org/
 
 ## How to flash
-. /home/luc/export-esp.sh 
+. export-esp.sh
+
 cargo build && cargo run
